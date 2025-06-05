@@ -3,9 +3,6 @@ import json
 
 everytime = pd.read_excel("Everytime.xlsx")
 
-import json
-import pandas as pd
-
 def safe_strip(val):
     return str(val).strip() if pd.notnull(val) else ""
 
