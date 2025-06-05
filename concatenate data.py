@@ -1,4 +1,5 @@
 import json
+import pandas as pd
 
 def merge_json_files(input_paths, output_path):
     merged_data = []
@@ -16,3 +17,12 @@ def merge_json_files(input_paths, output_path):
 
 # 데이터 병합
 merge_json_files(['dku_faq_juk.json', 'dku_qna_juk.json', 'dku_everytime.json'], 'DKU.json')
+
+data = pd.read_json('DKU.json')
+
+# 데이터 구조 일반화
+ordered_keys = ["id", "campus", "category", "subcategory", "question", "answer", "source"]
+data = data[ordered_keys]
+
+# id 컬럼을 1부터 순차적으로 할당
+data['id'] = range(1, len(data) + 1)
