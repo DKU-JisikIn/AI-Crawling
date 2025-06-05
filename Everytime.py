@@ -3,34 +3,65 @@ import json
 
 everytime = pd.read_excel("Everytime.xlsx")
 
+import json
+import pandas as pd
+
 def safe_strip(val):
     return str(val).strip() if pd.notnull(val) else ""
+
+# 소분류 -> 대분류 매핑 딕셔너리
+subcategory_to_category = {
+    '학적': '학사', '성적': '학사', '수업': '학사', '교양': '학사', '교직': '학사',
+    '복지시설': '일반', '예비군': '일반', '등록': '일반', 'it서비스': '일반', '도서관': '일반',
+    '기타': '일반', '기숙사': '일반', '제증명/학생증': '일반', '학생지원/교통': '일반',
+    '장학': '장학',
+    '외국인유학생': '국제', '한국어연수': '국제', '교환학생': '국제', '어학연수': '국제',
+    '취업': '진로', '대학원': '진로', '자격증': '진로',
+    '동아리': '동아리'
+}
+
+# 교양/수업은 소분류를 '수업'으로 통일
+def normalize_subcategory(subcategory):
+    if subcategory in ['교양', '수업']:
+        return '수업'
+    return subcategory
 
 def parse_blank_column_comments(df, output_json, campus="죽전"):
     data = []
     prev_question = ""
+    prev_subcategory = ""
     comment_start_idx = df.columns.get_loc('댓글')
-    question_id_map = {}  # 질문 -> id 매핑
+    question_id_map = {}
     id_counter = 1
 
     for _, row in df.iterrows():
-        category = safe_strip(row.get('분류', ''))
+        raw_subcategory = safe_strip(row.get('소분류', ''))
+        subcategory = normalize_subcategory(raw_subcategory)
         title = safe_strip(row.get('제목', ''))
         content = safe_strip(row.get('내용', ''))
         question = f"{title} - {content}" if title and content else title or content
 
+        # 질문, 소분류 아래로 내리기
         if not question or question.strip() == "-":
             question = prev_question
         else:
             prev_question = question
 
-        # 질문 ID 생성 또는 가져오기
+        if not subcategory or subcategory.strip() == "-":
+            subcategory = prev_subcategory
+        else:
+            prev_subcategory = subcategory
+
+        # 대분류 매핑
+        category = subcategory_to_category.get(subcategory, "")
+
+        # ID 생성
         if question not in question_id_map:
-            question_id_map[question] = f"everytime_{id_counter:03d}"
+            question_id_map[question] = f"customid_{id_counter:03d}"
             id_counter += 1
         question_id = question_id_map[question]
 
-        # 댓글 열부터 오른쪽 값들 가져오기
+        # 댓글 열부터 오른쪽 끝까지 데이터 가져오기
         comment_cells = [safe_strip(row[col]) for col in df.columns[comment_start_idx:]]
 
         # 빈 셀로 스레드 그룹 구분
@@ -51,8 +82,9 @@ def parse_blank_column_comments(df, output_json, campus="죽전"):
                 "id": question_id,
                 "campus": campus,
                 "category": category,
+                "subcategory": subcategory,
                 "question": question,
-                "answer": "",  # 답변 없음
+                "answer": "",
                 "source": "Everytime"
             })
         else:
@@ -62,6 +94,7 @@ def parse_blank_column_comments(df, output_json, campus="죽전"):
                     "id": question_id,
                     "campus": campus,
                     "category": category,
+                    "subcategory": subcategory,
                     "question": question,
                     "answer": answer,
                     "source": "Everytime"
